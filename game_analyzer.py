@@ -99,6 +99,22 @@ plt.ylabel('Game Release Amount')
 output_game_releases_per_year = os.path.join(output_folder, 'game_releases_per_year.png')
 plt.savefig(output_game_releases_per_year)
 
+# Average Game Price Model
+x = [2004 + i for i in range(21)]
+averagePriceList = averagePriceList[6:]
+y = averagePriceList
+plt.figure(figsize=(10, 5))
+plt.plot(x, y, marker='o', linestyle='-', color='b', label='Average Price') 
+plt.title('Price Trends from 2024 to 2024', fontsize=16)
+plt.xlabel('Year', fontsize=5)
+plt.ylabel('Average Price ($)', fontsize=12)
+plt.xticks(range(2004, 2025))
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+output_price_trends = os.path.join(output_folder, 'price_trends.png')
+plt.savefig(output_price_trends)
+
 # TAG SECTION
 # WordCloud Model (for frequency in Tags)
 with open(tags_path, mode='r', encoding='utf-8') as file:
