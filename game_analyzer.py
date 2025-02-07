@@ -1,15 +1,14 @@
 import csv
 import os
 import numpy as np
-import plotly
+import matplotlib.pyplot as plt
+from matplotlib import ticker
 from collections import Counter
 from wordcloud import WordCloud
 
 categories_path = 'data_sets/categories.csv'
-descriptions_path = 'data_sets/descriptions.csv'
 games_path = 'data_sets/games.csv'
 genres_path = 'data_sets/genres.csv'
-promotional_path = 'data_sets/promotional.csv'
 reviews_path = 'data_sets/reviews.csv'
 steamspy_insights_path = 'data_sets/steamspy_insights.csv'
 tags_path = 'data_sets/tags.csv'
@@ -18,21 +17,16 @@ tags_path = 'data_sets/tags.csv'
 output_folder = 'models'
 os.makedirs(output_folder, exist_ok=True)
 
-# Counting Entries
+# DATA STRUCTURES
 counterIds = 0
-
-# Prices
-priceList = [ [] for i in range(27) ]
-averagePriceList = [ [] for i in range(27) ]
-
-# Game Count
-gamesCount = [ [0] for i in range(27) ]
-gameReleasePerYear = [ [0] for i in range(27) ]
-
-# Word Frequency
+priceList = [[] for i in range(27)]
+averagePriceList = [[] for i in range(27)]
+gamesCount = [[0] for i in range(27)]
+gameReleasePerYear = [[0] for i in range(27)]
 tag_counter = Counter()
 tag_total_counter = 0
 
+# GAME SECTION
 with open(games_path, mode='r', encoding='utf-8') as file:
     reader = csv.reader(file)
     next(reader, None)
@@ -72,13 +66,6 @@ with open(games_path, mode='r', encoding='utf-8') as file:
             if releaseYear.isdigit():
                 gamesCount[int(releaseYear) - 1998].append(1)
 
-with open(tags_path, mode='r', encoding='utf-8') as file:
-    reader = csv.DictReader(file)
-    for row in reader:
-        tag = row['tag'].lower()
-        tag_counter[tag] += 1 
-        tag_total_counter += 1
-
 # Iterating through Lists
 for i in range(27):
     # Average Price over 76092 games per year
@@ -98,8 +85,92 @@ for i in range(27):
         gameReleasePerYear[i] = gameTotal
     else:
         gameReleasePerYear[i] = 0
-        
+
+# Game Release Per Year Model
+x = [1998 + i for i in range(27)]
+y = gameReleasePerYear
+plt.figure(figsize=(8, 6))
+plt.bar(x, y)
+plt.xlim(1998, 2025)
+plt.title('Game Releases Per Year')
+plt.xlabel('Year')
+plt.ylabel('Game Release Amount')
+output_game_releases_per_year = os.path.join(output_folder, 'game_releases_per_year.png')
+plt.savefig(output_game_releases_per_year)
+
+# TAG SECTION
 # WordCloud Model (for frequency in Tags)
+with open(tags_path, mode='r', encoding='utf-8') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        tag = row['tag'].lower()
+        tag_counter[tag] += 1 
+        tag_total_counter += 1
+
 wordcloud = WordCloud(width=3000, height=2200, max_words=tag_total_counter, background_color='black').generate_from_frequencies(tag_counter)
 output_tag_frequency = os.path.join(output_folder, 'tag_frequency.png')
 wordcloud.to_file(output_tag_frequency)
+
+# REVIEW SECTION
+positiveList = []
+
+def nMaxElements(list1, N):
+    final_list = []
+ 
+    for _ in range(N):
+        max_pair = max(list1, key=lambda x: x[0])
+        list1.remove(max_pair)
+        final_list.append(max_pair)
+    
+    return final_list
+
+def abbreviate_number(x, pos):
+    if x >= 1_000_000:
+        return f'{x/1_000_000:.1f}M'
+    elif x >= 1_000:
+        return f'{x/1_000:.0f}k'
+    else:
+        return f'{x}'
+
+with open(reviews_path, mode='r', encoding='utf-8') as file:
+    reader = csv.reader(file)
+    next(reader, None)
+    
+    for row in reader:
+        if len(row) != 0 and len(row) > 12:
+            app_id = row[0]        # app_id
+            positive = row[3]      # positive reviews
+            
+            if positive.isdigit():
+                positiveList.append((int(positive), app_id))
+
+top_50 = nMaxElements(positiveList, 50)
+top_50.pop(0) # Excluding CSGO
+app_ids = [app_id for _, app_id in top_50]
+y = []
+with open(games_path, mode='r', encoding='utf-8') as file:
+    reader = csv.reader(file)
+    next(reader, None)
+    
+    for row in reader:
+        app_id = row[0]           # app_id
+        name = row[1]             # name
+
+        for i in app_ids:
+            if (i == app_id):
+                y.append(name)
+                break
+
+x = [positive for positive, _ in top_50]
+plt.figure(figsize=(12, 8))
+plt.barh(y, x)
+plt.title('Top 50 Reviewed Games')
+plt.gca().invert_yaxis()
+
+formatter = ticker.FuncFormatter(abbreviate_number)
+plt.gca().xaxis.set_major_formatter(formatter)
+
+plt.tight_layout()
+
+output_top_50_reviewed_games = os.path.join(output_folder, 'top_50_reviewed_games.png')
+plt.savefig(output_top_50_reviewed_games)
