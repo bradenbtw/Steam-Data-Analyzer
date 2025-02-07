@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker
+from matplotlib.ticker import PercentFormatter
 from collections import Counter
 from wordcloud import WordCloud
 
@@ -113,6 +114,7 @@ wordcloud.to_file(output_tag_frequency)
 
 # REVIEW SECTION
 positiveList = []
+negativeList = []
 
 def nMaxElements(list1, N):
     final_list = []
@@ -139,13 +141,25 @@ with open(reviews_path, mode='r', encoding='utf-8') as file:
     for row in reader:
         if len(row) != 0 and len(row) > 12:
             app_id = row[0]        # app_id
+            description = row[2]   # description
             positive = row[3]      # positive reviews
+            negative = row[4]      # negative reviews
+            total = row[5]
             
-            if positive.isdigit():
-                positiveList.append((int(positive), app_id))
+            # Positive
+            if description == "Overwhelmingly Positive":
+                if positive.isdigit() and total.isdigit():
+                    if float(positive) != 0 and float(total) != 0 and float(total) != float(positive):
+                        positiveList.append((int(positive), app_id))
+            
+            # Negative
+            if description == "Overwhelmingly Negative":
+                if negative.isdigit() and total.isdigit():
+                    if float(negative) != 0 and float(total) != 0 and float(total) != float(negative):
+                        negativeList.append((float(negative)/float(total), app_id))
 
+# TOP 50 REVIEWED GAMES
 top_50 = nMaxElements(positiveList, 50)
-top_50.pop(0) # Excluding CSGO
 app_ids = [app_id for _, app_id in top_50]
 y = []
 with open(games_path, mode='r', encoding='utf-8') as file:
@@ -164,13 +178,39 @@ with open(games_path, mode='r', encoding='utf-8') as file:
 x = [positive for positive, _ in top_50]
 plt.figure(figsize=(12, 8))
 plt.barh(y, x)
+plt.xlabel('Amount of Reviews')
 plt.title('Top 50 Reviewed Games')
 plt.gca().invert_yaxis()
-
 formatter = ticker.FuncFormatter(abbreviate_number)
 plt.gca().xaxis.set_major_formatter(formatter)
-
 plt.tight_layout()
+output_top_50_best_reviewed_games = os.path.join(output_folder, 'top_50_best_reviewed_games.png')
+plt.savefig(output_top_50_best_reviewed_games)
 
-output_top_50_reviewed_games = os.path.join(output_folder, 'top_50_reviewed_games.png')
-plt.savefig(output_top_50_reviewed_games)
+# TOP 50 WORST REVIEWED GAMES
+low_10 = nMaxElements(negativeList, 10)
+app_ids = [app_id for _, app_id in low_10]
+y = []
+with open(games_path, mode='r', encoding='utf-8') as file:
+    reader = csv.reader(file)
+    next(reader, None)
+    
+    for row in reader:
+        app_id = row[0]           # app_id
+        name = row[1]             # name
+
+        for i in app_ids:
+            if (i == app_id):
+                y.append(name)
+                break
+            
+x = [round(negative*100,2) for negative, _ in low_10]
+plt.figure(figsize=(12, 8))
+plt.barh(y, x)
+plt.title('Top 10 Worst Reviewed Games')
+plt.gca().xaxis.set_major_formatter(PercentFormatter())
+plt.gca().invert_yaxis()
+plt.xlabel('Percentage of Negative Reviews')
+plt.tight_layout()
+output_top_10_worst_reviewed_games = os.path.join(output_folder, 'top_10_worst_reviewed_games.png')
+plt.savefig(output_top_10_worst_reviewed_games)
